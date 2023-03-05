@@ -3,7 +3,7 @@
 Plugin Name: Macrocalculator API
 Plugin URI: https://github.com/Solomon04/react-macro
 Description: This is a custom plugin that allows us to email users that complete the macro calculator form.
-Version: 1.0
+Version: 1.1
 Author: Solomon <solomon@icodestuff.io>
 */
 
@@ -85,7 +85,7 @@ function send_sendgrid_email($email, $firstName, $tdee, $diets)
 {
     $sendgrid = new SendGrid(getenv('SENDGRID_API_KEY'));
     $mail = new Mail();
-    $mail->setFrom('info@exercisewithstyle.com');
+    $mail->setFrom('info@exercisewithstyle.com', 'Exercise With Style');
     $mail->setTemplateId(getenv('SENDGRID_TEMPLATE_ID'));
     $mail->addTo($email);
     $mail->addDynamicTemplateDatas([
