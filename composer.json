@@ -3,7 +3,8 @@
         "rakit/validation": "^1.4",
         "vlucas/phpdotenv": "^4.1.3",
         "sendgrid/sendgrid": "^7.11.5",
-        "guzzlehttp/guzzle": "^7.0"
+        "guzzlehttp/guzzle": "^7.0",
+        "asana/asana": "^1.0"
     },
     "version": "7.4",
     "config": {
