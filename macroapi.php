@@ -3,7 +3,7 @@
 Plugin Name: Macrocalculator API
 Plugin URI: https://github.com/Solomon04/react-macro
 Description: This is a custom plugin that allows us to email users that complete the macro calculator form.
-Version: 1.2
+Version: 1.3
 Author: Solomon <solomon@icodestuff.io>
 */
 
@@ -62,7 +62,7 @@ function handle($request)
     $tdee = $params['tdee'];
     $diets = $params['diets'];
 
-    $response = add_subscriber_to_convert_kit($email, $fullName, $firstName);
+    $response = add_subscriber_to_macro_entry_tag($email, $fullName, $firstName);
 
     if ($response['status'] !== 200) {
         return new WP_Error(400, $response['message']);
@@ -74,10 +74,18 @@ function handle($request)
         return new WP_Error(400, $exception->getMessage());
     }
 
-    try {
-        add_submission_to_asana($params);
-    }catch (\Asana\Errors\AsanaError $exception) {
-        return new WP_Error($exception->getCode(), $exception->getMessage());
+    if ($params['wants_consulting'] == 'Yes') {
+        try {
+            add_submission_to_asana($params);
+        }catch (\Asana\Errors\AsanaError $exception) {
+            return new WP_Error($exception->getCode(), $exception->getMessage());
+        }
+
+        $response = add_subscriber_to_macro_service_tag($email, $fullName, $firstName);
+
+        if ($response['status'] !== 200) {
+            return new WP_Error(400, $response['message']);
+        }
     }
 
     return new WP_REST_Response(
@@ -113,11 +121,33 @@ function send_sendgrid_email($email, $firstName, $tdee, $diets)
     return $sendgrid->send($mail);
 }
 
-function add_subscriber_to_convert_kit($email, $fullName, $firstName)
+function add_subscriber_to_macro_entry_tag($email, $fullName, $firstName)
 {
     $client = new Client();
 
-    $response = $client->request('POST', 'https://api.convertkit.com/v3/forms/4918012/subscribe', [
+    $response = $client->request('POST', 'https://api.convertkit.com/v3/tags/3722110/subscribe', [
+        'headers' => [
+            'Content-Type' => 'application/json; charset=utf-8',
+        ],
+        'json' => [
+            'api_key' => getenv('CONVERT_KIT_KEY'),
+            'email' => $email,
+            'first_name' => $firstName,
+            'name' => $fullName
+        ],
+    ]);
+
+    return [
+        'status' => $response->getStatusCode(),
+        'message' => $response->getBody()->getContents()
+    ];
+}
+
+function add_subscriber_to_macro_service_tag($email, $fullName, $firstName)
+{
+    $client = new Client();
+
+    $response = $client->request('POST', 'https://api.convertkit.com/v3/tags/3730007/subscribe', [
         'headers' => [
             'Content-Type' => 'application/json; charset=utf-8',
         ],
