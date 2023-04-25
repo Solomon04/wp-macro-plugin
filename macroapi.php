@@ -3,7 +3,7 @@
 Plugin Name: Macrocalculator API
 Plugin URI: https://github.com/Solomon04/react-macro
 Description: This is a custom plugin that allows us to email users that complete the macro calculator form.
-Version: 1.4
+Version: 1.5
 Author: Solomon <solomon@icodestuff.io>
 */
 
@@ -135,6 +135,11 @@ function handleCalendlySubmission($request)
         return new WP_Error(400, $response['message']);
     }
 
+    $response = remove_subscriber_from_did_not_book_tag($email);
+    if ($response['status'] !== 200) {
+        return new WP_Error(400, $response['message']);
+    }
+
     return new WP_REST_Response(
         array(
             'status' => 'success',
@@ -232,6 +237,27 @@ function add_subscriber_did_not_book_service_tag($email)
     $client = new Client();
 
     $url = sprintf("https://api.convertkit.com/v3/tags/%s/subscribe", DID_NOT_BOOK_SERVICE_YET_TAG);
+    $response = $client->request('POST', $url, [
+        'headers' => [
+            'Content-Type' => 'application/json; charset=utf-8',
+        ],
+        'json' => [
+            'api_key' => getenv('CONVERT_KIT_KEY'),
+            'email' => $email,
+        ],
+    ]);
+
+    return [
+        'status' => $response->getStatusCode(),
+        'message' => $response->getBody()->getContents()
+    ];
+}
+
+function remove_subscriber_from_did_not_book_tag($email)
+{
+    $client = new Client();
+
+    $url = sprintf("https://api.convertkit.com/v3/tags/%s/unsubscribe", DID_NOT_BOOK_SERVICE_YET_TAG);
     $response = $client->request('POST', $url, [
         'headers' => [
             'Content-Type' => 'application/json; charset=utf-8',
