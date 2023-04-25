@@ -3,7 +3,7 @@
 Plugin Name: Macrocalculator API
 Plugin URI: https://github.com/Solomon04/react-macro
 Description: This is a custom plugin that allows us to email users that complete the macro calculator form.
-Version: 1.5
+Version: 1.6
 Author: Solomon <solomon@icodestuff.io>
 */
 
@@ -263,7 +263,8 @@ function remove_subscriber_from_did_not_book_tag($email)
             'Content-Type' => 'application/json; charset=utf-8',
         ],
         'json' => [
-            'api_key' => getenv('CONVERT_KIT_KEY'),
+            // performing any delete action requires us to pass in the api secret not the api key.
+            'api_secret' => getenv('CONVERT_KIT_SECRET'),
             'email' => $email,
         ],
     ]);
