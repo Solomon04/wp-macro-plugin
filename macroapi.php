@@ -3,9 +3,15 @@
 Plugin Name: Macrocalculator API
 Plugin URI: https://github.com/Solomon04/react-macro
 Description: This is a custom plugin that allows us to email users that complete the macro calculator form.
-Version: 1.3
+Version: 1.4
 Author: Solomon <solomon@icodestuff.io>
 */
+
+// Reference tag ID's in convert kit dashboard: https://app.convertkit.com/subscribers
+const GENERAL_MACRO_TAG = '3722110';
+const BOOKED_SERVICE_CALL_TAG = '3803558';
+const MACRO_SERVICE_REQUEST_TAG = '3730007';
+const DID_NOT_BOOK_SERVICE_YET_TAG = '3803560';
 
 if (file_exists(__DIR__ . '/vendor/autoload.php')) {
     require_once __DIR__ . '/vendor/autoload.php';
@@ -24,11 +30,15 @@ use Asana\Client as Asana;
 add_action('rest_api_init', function () {
     register_rest_route('macro/v1', '/submit', array(
         'methods' => 'POST',
-        'callback' => 'handle',
+        'callback' => 'handleFormSubmission',
+    ));
+    register_rest_route('macro/v1', '/calendly', array(
+        'methods' => 'POST',
+        'callback' => 'handleCalendlySubmission',
     ));
 });
 
-function handle($request)
+function handleFormSubmission($request)
 {
     $params = $request->get_params();
     $validation = (new Validator())->make($params, [
@@ -86,6 +96,12 @@ function handle($request)
         if ($response['status'] !== 200) {
             return new WP_Error(400, $response['message']);
         }
+
+        $response = add_subscriber_did_not_book_service_tag($email);
+
+        if ($response['status'] !== 200) {
+            return new WP_Error(400, $response['message']);
+        }
     }
 
     return new WP_REST_Response(
@@ -96,14 +112,37 @@ function handle($request)
     );
 }
 
-/**
- * @param $email
- * @param $fullName
- * @param $tdee
- * @param $diets
- * @return \SendGrid\Response
- * @throws \SendGrid\Mail\TypeException
- */
+function handleCalendlySubmission($request)
+{
+    $params = $request->get_params();
+    $validation = (new Validator())->make($params, [
+        'email' => 'required|email',
+    ]);
+
+    $validation->validate();
+    if ($validation->fails()) {
+        // handling errors
+        $errors = $validation->errors();
+        return new WP_Error(400, 'Invalid Email', [
+            'data' => $errors->firstOfAll()
+        ]);
+    }
+
+    $email = $params['email'];
+    $response = add_subscriber_to_booked_service_tag($email);
+
+    if ($response['status'] !== 200) {
+        return new WP_Error(400, $response['message']);
+    }
+
+    return new WP_REST_Response(
+        array(
+            'status' => 'success',
+            'response' => 'Added email to booked service tag',
+        )
+    );
+}
+
 function send_sendgrid_email($email, $firstName, $tdee, $diets)
 {
     $sendgrid = new SendGrid(getenv('SENDGRID_API_KEY'));
@@ -125,7 +164,8 @@ function add_subscriber_to_macro_entry_tag($email, $fullName, $firstName)
 {
     $client = new Client();
 
-    $response = $client->request('POST', 'https://api.convertkit.com/v3/tags/3722110/subscribe', [
+    $url = sprintf("https://api.convertkit.com/v3/tags/%s/subscribe", GENERAL_MACRO_TAG);
+    $response = $client->request('POST', $url, [
         'headers' => [
             'Content-Type' => 'application/json; charset=utf-8',
         ],
@@ -147,7 +187,8 @@ function add_subscriber_to_macro_service_tag($email, $fullName, $firstName)
 {
     $client = new Client();
 
-    $response = $client->request('POST', 'https://api.convertkit.com/v3/tags/3730007/subscribe', [
+    $url = sprintf("https://api.convertkit.com/v3/tags/%s/subscribe", MACRO_SERVICE_REQUEST_TAG);
+    $response = $client->request('POST', $url, [
         'headers' => [
             'Content-Type' => 'application/json; charset=utf-8',
         ],
@@ -156,6 +197,48 @@ function add_subscriber_to_macro_service_tag($email, $fullName, $firstName)
             'email' => $email,
             'first_name' => $firstName,
             'name' => $fullName
+        ],
+    ]);
+
+    return [
+        'status' => $response->getStatusCode(),
+        'message' => $response->getBody()->getContents()
+    ];
+}
+
+function add_subscriber_to_booked_service_tag($email)
+{
+    $client = new Client();
+
+    $url = sprintf("https://api.convertkit.com/v3/tags/%s/subscribe", BOOKED_SERVICE_CALL_TAG);
+    $response = $client->request('POST', $url, [
+        'headers' => [
+            'Content-Type' => 'application/json; charset=utf-8',
+        ],
+        'json' => [
+            'api_key' => getenv('CONVERT_KIT_KEY'),
+            'email' => $email,
+        ],
+    ]);
+
+    return [
+        'status' => $response->getStatusCode(),
+        'message' => $response->getBody()->getContents()
+    ];
+}
+
+function add_subscriber_did_not_book_service_tag($email)
+{
+    $client = new Client();
+
+    $url = sprintf("https://api.convertkit.com/v3/tags/%s/subscribe", DID_NOT_BOOK_SERVICE_YET_TAG);
+    $response = $client->request('POST', $url, [
+        'headers' => [
+            'Content-Type' => 'application/json; charset=utf-8',
+        ],
+        'json' => [
+            'api_key' => getenv('CONVERT_KIT_KEY'),
+            'email' => $email,
         ],
     ]);
 
