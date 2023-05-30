@@ -3,7 +3,7 @@
 Plugin Name: Macrocalculator API
 Plugin URI: https://github.com/Solomon04/react-macro
 Description: This is a custom plugin that allows us to email users that complete the macro calculator form.
-Version: 1.6
+Version: 1.7
 Author: Solomon <solomon@icodestuff.io>
 */
 
@@ -35,6 +35,10 @@ add_action('rest_api_init', function () {
     register_rest_route('macro/v1', '/calendly', array(
         'methods' => 'POST',
         'callback' => 'handleCalendlySubmission',
+    ));
+    register_rest_route('macro/v1', '/webhook', array(
+        'methods' => 'POST',
+        'callback' => 'handleWebhook',
     ));
 });
 
@@ -116,7 +120,7 @@ function handleCalendlySubmission($request)
 {
     $params = $request->get_params();
     $validation = (new Validator())->make($params, [
-        'email' => 'required|email',
+        'payload' => 'required|email',
     ]);
 
     $validation->validate();
@@ -146,6 +150,43 @@ function handleCalendlySubmission($request)
             'response' => 'Added email to booked service tag',
         )
     );
+}
+
+function handleWebhook($request)
+{
+    $params = $request->get_params();
+    $validation = (new Validator())->make($params, [
+        'payload' => 'required',
+    ]);
+
+    $validation->validate();
+    if ($validation->fails()) {
+        // handling errors
+        $errors = $validation->errors();
+        return new WP_Error(400, 'Invalid Payload', [
+            'data' => $errors->firstOfAll()
+        ]);
+    }
+
+    $email = $params['payload']['email'];
+    $response = add_subscriber_to_booked_service_tag($email);
+
+    if ($response['status'] !== 200) {
+        return new WP_Error(400, $response['message']);
+    }
+
+    $response = remove_subscriber_from_did_not_book_tag($email);
+    if ($response['status'] !== 200) {
+        return new WP_Error(400, $response['message']);
+    }
+
+    return new WP_REST_Response(
+        array(
+            'status' => 'success',
+            'response' => 'Added email to booked service tag via Webhook',
+        )
+    );
+
 }
 
 function send_sendgrid_email($email, $firstName, $tdee, $diets)
